@@ -1,6 +1,8 @@
 import requests
 import os
 from datetime import datetime
+import re
+import dateutil.parser
 
 # Делаем запросы по API и сохраняем результат в переменную
 users = requests.get('https://json.medrating.org/users')
@@ -61,14 +63,28 @@ def get_uncompleted_tasks_names(tasks):
     return completed_tasks
 
 
+def get_timestamp_from_file(path):
+    first_string = ''
+    with open(path, 'r') as file_handler:
+        first_string = file_handler.readlines()[0]
+    timestamp = re.search(r'\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}', first_string).group(0)
+    timestamp_formated = dateutil.parser.parse(timestamp).strftime("%Y-%m-%dT%H:%M")
+    return timestamp_formated
+
 def write_users_task(user_data):
     completed_tasks = get_completed_tasks_names(user_data['user_tasks'])
     uncompleted_tasks = get_uncompleted_tasks_names(user_data['user_tasks'])
-    with open('tasks/' + user_data['user_name'] + '.txt', 'w+') as file_handler:
+    path = 'tasks/' + user_data['user_name'] + '.txt'
+    if os.path.isfile(path):
+        formated_timestamp = get_timestamp_from_file(path)
+        new_path = 'tasks/' + user_data['user_name'] + '_' + formated_timestamp + '.txt'
+        os.rename(path, new_path)
+        
+    with open(path, 'w+') as file_handler:
         file_handler.write('{user_name} <{user_email}> {timestamp}\n'.format(
             user_name=user_data['user_name'],
             user_email=user_data['user_email'],
-            timestamp=datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+            timestamp=datetime.now().strftime("%d.%m.%Y %H:%M")
         ))
         file_handler.write('{user_company}\n\n'.format(
             user_company=user_data['user_company']['name']))
@@ -80,3 +96,4 @@ def write_users_task(user_data):
 
 for user_todo in users_todos:
     write_users_task(user_todo)
+
