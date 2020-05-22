@@ -3,10 +3,41 @@ import os
 from datetime import datetime
 import re
 import dateutil.parser
+from functions import get_completed_tasks_names, get_timestamp_from_file, get_uncompleted_tasks_names, write_users_task
 
 # Делаем запросы по API и сохраняем результат в переменную
-users = requests.get('https://json.medrating.org/users')
-todos = requests.get('https://json.medrating.org/todos')
+
+try:
+    users = requests.get('https://json.medrating.org/users')
+    users.raise_for_status()
+except requests.exceptions.ConnectionError as errc:
+    print('Нет соединения с сервером. Проверьте интернет-подключение. Программа будет завершена.')
+    raise SystemExit(errc)
+except requests.exceptions.HTTPError as errh:
+    print ("Ошибка в HTTP запросе:",errh)
+    raise SystemExit(errh)
+except requests.exceptions.Timeout as errt:
+    print('Тайм-айт соединения...Программа будет завершена')
+    raise SystemExit(errh)
+except requests.exceptions.RequestException as err:
+    print('Упс...что-то пошло нет так')
+    raise SystemExit(err)
+
+try:
+    todos = requests.get('https://json.medrating.org/todos')
+    todos.raise_for_status()
+except requests.exceptions.ConnectionError as errc:
+    print('Нет соединения с сервером. Проверьте интернет-подключение. Программа будет завершена.')
+    raise SystemExit(errc)
+except requests.exceptions.HTTPError as errh:
+    print ("Ошибка в HTTP запросе:",errh)
+    raise SystemExit(errh)
+except requests.exceptions.Timeout as errt:
+    print('Тайм-айт соединения...Программа будет завершена')
+    raise SystemExit(errh)
+except requests.exceptions.RequestException as err:
+    print('Упс...что-то пошло нет так')
+    raise SystemExit(err)  
 
 # Создаем пустой список для группировки пользователей и их задач
 users_todos = []
@@ -46,54 +77,6 @@ try:
 except FileExistsError:
     print('Директория tasks уже существует')
 
-
-def get_completed_tasks_names(tasks):
-    completed_tasks = []
-    for task in tasks:
-        if task['task_completed'] == True:
-            completed_tasks.append(task['task_title'])
-    return completed_tasks
-
-
-def get_uncompleted_tasks_names(tasks):
-    completed_tasks = []
-    for task in tasks:
-        if task['task_completed'] == False:
-            completed_tasks.append(task['task_title'])
-    return completed_tasks
-
-
-def get_timestamp_from_file(path):
-    first_string = ''
-    with open(path, 'r') as file_handler:
-        first_string = file_handler.readlines()[0]
-    timestamp = re.search(r'\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}', first_string).group(0)
-    timestamp_formated = dateutil.parser.parse(timestamp).strftime("%Y-%m-%dT%H:%M")
-    return timestamp_formated
-
-def write_users_task(user_data):
-    completed_tasks = get_completed_tasks_names(user_data['user_tasks'])
-    uncompleted_tasks = get_uncompleted_tasks_names(user_data['user_tasks'])
-    path = 'tasks/' + user_data['user_name'] + '.txt'
-    if os.path.isfile(path):
-        formated_timestamp = get_timestamp_from_file(path)
-        new_path = 'tasks/' + user_data['user_name'] + '_' + formated_timestamp + '.txt'
-        os.rename(path, new_path)
-        
-    with open(path, 'w+') as file_handler:
-        file_handler.write('{user_name} <{user_email}> {timestamp}\n'.format(
-            user_name=user_data['user_name'],
-            user_email=user_data['user_email'],
-            timestamp=datetime.now().strftime("%d.%m.%Y %H:%M")
-        ))
-        file_handler.write('{user_company}\n\n'.format(
-            user_company=user_data['user_company']['name']))
-        file_handler.write('Завершенные задачи:\n')
-        file_handler.writelines(task + '\n' for task in completed_tasks)
-        file_handler.write('\nОставшиеся задачи:\n')
-        file_handler.writelines(task + '\n' for task in uncompleted_tasks)
-
-
+# Перебираем список с пользователями и их задачами, формируем отчеты
 for user_todo in users_todos:
     write_users_task(user_todo)
-
